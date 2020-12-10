@@ -1,0 +1,43 @@
+# setup-homepage.yaml
+
+---
+  - hosts: webservers
+    become: true
+
+    vars:
+      path_to_app: "/var/www/html"
+      keypair: nova-kp
+    vars_files:
+      - aws_keys.yml
+
+    tasks: 
+      - name: Upload application file
+        copy: 
+          src: ./index.php
+          dest: "{{ path_to_app }}"
+          mode: 0755   
+
+      - name: Configure php.ini
+        lineinfile:
+          path: /etc/php.ini
+          regexp: ^short_open_tag
+          line: 'short_open_tag=On'
+        notify: restart Apache
+
+      # - name: Create simple info page
+      #   copy:
+      #     dest: "{{ path_to_app }}/info.php"
+      #     content: "<h1> Info about our webserver: {{ ansible_hostname }} </h1>"
+
+      # - name: See dir contents
+      #   command: ls -la {{ path_to_app }}
+      #   register: dir_contents
+
+      # - name: Debug dir contents
+      #   debug:
+      #     msg: "{{ dir_contents }}"
+
+# service handler that restarts only if the ini is changed
+    handlers: 
+      - name: restart Apache
+        service: name=httpd state=restarted

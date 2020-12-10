@@ -1,0 +1,7 @@
+# hosts
+
+[local]
+localhost ansible_python_interpreter=/Users/jamesmundia/.local/share/virtualenvs/ansible-test-N-avsOhl/bin/python3
+
+[webservers]
+54.157.180.109

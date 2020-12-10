@@ -1,0 +1,95 @@
+# launch-instances.yml
+
+---
+- hosts: local
+  connection: local
+  gather_facts: False
+  vars:
+    instance_type: t2.micro
+    
+    # SG can also be a prompt, when appropriate
+    security_group: ansible-webservers_sg
+    
+    image: ami-04d29b6f966df1537
+    keypair: nova-kp
+    region: us-east-1
+    count: 1
+  vars_files:
+    - aws_keys.yml
+
+  tasks:
+    - name: Create a security group
+      ec2_group:
+        name: "{{ security_group }}"
+        description: The webservers security group
+        region: "{{ region }}"
+        aws_access_key: "{{ aws_access_key_id }}"
+        aws_secret_key: "{{ aws_secret_access_key }}"
+        rules:
+          - proto: tcp
+            from_port: 22
+            to_port: 22
+            cidr_ip: 0.0.0.0/0
+          - proto: tcp
+            from_port: 80
+            to_port: 80
+            cidr_ip: 0.0.0.0/0
+        rules_egress:
+          - proto: all
+            cidr_ip: 0.0.0.0/0
+
+    - name: Launch the new EC2 Instance
+      ec2:
+        aws_access_key: "{{ aws_access_key_id }}"
+        aws_secret_key: "{{ aws_secret_access_key }}"
+        group: "{{ security_group }}"
+        instance_type: "{{ instance_type }}"
+        image: "{{ image }}"
+        wait: true 
+        region: "{{ region }}"
+        keypair: "{{ keypair }}"
+        count: "{{count}}"
+      register: ec2
+
+    - name: Add tag to Instance(s)
+      ec2_tag:
+        aws_access_key: "{{ aws_access_key_id }}"
+        aws_secret_key: "{{ aws_secret_access_key }}"
+        resource: "{{ item.id }}" 
+        region: "{{ region }}" 
+        state: "present"
+      with_items: "{{ ec2.instances }}"
+      args:
+        tags:
+          Type: webserver
+
+    - name: Add the newly created EC2 instance(s) to the local host group
+      local_action: lineinfile 
+                    path=hosts
+                    regexp={{ item.public_ip }} 
+                    insertafter="[webservers]" line={{ item.public_ip }}
+      with_items: '{{ec2.instances}}'
+
+    - meta: refresh_inventory
+
+    - name: Wait for SSH to come up
+      wait_for:
+        host: "{{ item.public_ip }}"
+        port: 22 
+        state: started 
+      with_items: "{{ ec2.instances }}"
+
+    - pause: 
+        minutes: 5
+
+- hosts: webservers
+  become: true
+  tasks:
+    - name: installing services
+      yum: 
+        name:
+          - httpd 
+          - php
+        state: present
+    - name: Ensure apache starts
+      service: name=httpd state=started enabled=yes
