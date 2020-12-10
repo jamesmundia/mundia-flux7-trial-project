@@ -4,13 +4,21 @@
   - hosts: webservers
     become: true
 
-    vars:
-      path_to_app: "/var/www/html"
-      keypair: nova-kp
     vars_files:
-      - aws_keys.yml
+      - vars.yml
 
     tasks: 
+      - name: installing services
+        yum: 
+          name:
+            - httpd 
+            - php
+          state: present
+
+      - name: Ensure apache starts
+        service: name=httpd state=started enabled=yes
+
+
       - name: Upload application file
         copy: 
           src: ./index.php
@@ -29,13 +37,13 @@
       #     dest: "{{ path_to_app }}/info.php"
       #     content: "<h1> Info about our webserver: {{ ansible_hostname }} </h1>"
 
-      # - name: See dir contents
-      #   command: ls -la {{ path_to_app }}
-      #   register: dir_contents
+      - name: See dir contents
+        command: ls -la {{ path_to_app }}
+        register: dir_contents
 
-      # - name: Debug dir contents
-      #   debug:
-      #     msg: "{{ dir_contents }}"
+      - name: Debug dir contents
+        debug:
+          msg: "{{ dir_contents }}"
 
 # service handler that restarts only if the ini is changed
     handlers: 

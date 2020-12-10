@@ -1,0 +1,4 @@
+# all-playbooks.yml
+---
+  - import_playbook: launch-instances.yml
+  - import_playbook: setup-homepage.yml
